@@ -325,7 +325,7 @@ export class Parser {
     public resolveWeekday(weekday: string, mod?: string): number {
 
         // get name of weekday in input
-        let searchedDay = J.Util.getDayOfWeekForString(weekday);
+        let searchedDay = J.Util.getDayOfWeekForString(weekday, this.ctrl.config.getLocale());
         let currentDay: number = this.today.getDay();
         let diff = searchedDay - currentDay;
 

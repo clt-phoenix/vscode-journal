@@ -17,8 +17,10 @@
 // 
 'use strict';
 
+import path from 'path';
 import * as vscode from 'vscode';
 import * as J from '../..';
+import { denormalizeFilename } from '../../util';
 
 /**
  * The shift task command is active for open tasks, e.g. '-[ ] some text' and triggered by the codeaction in complete-task
@@ -44,6 +46,10 @@ import * as J from '../..';
     public run(document: vscode.TextDocument, range: vscode.Range | vscode.Selection) {
         console.log("command called with ", document.uri, "and range", range);
         
+        J.Util.getDateFromURIAndConfig(document.uri, this.ctrl.config)
+
+        ; 
+        // compute date from document
     
         return; 
     }

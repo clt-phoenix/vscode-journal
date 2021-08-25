@@ -22,38 +22,37 @@ export { Startup } from './startup';
 export { Logger }  from './logger';
 
 export {
-    checkIfFileIsAccessible,
-    denormalizeFilename,
-    formatDate,
-    getDayAsString,
-    getDayOfWeekForString,
-    getEntryPathForDate,
-    getFileInURI,
-    getFilePathInDateFolder,
-    getNextLine,
-    getPathOfMonth,
-    normalizeFilename,
-    prefixZero, 
-     getPathAsString, 
      isNotNullOrUndefined, 
      isNullOrUndefined, 
-     stringIsNotEmpty,
-     isError, 
-     isString
-
+     isError
 } from './util';
 
+export {
+    formatDate, 
+    getDayOfWeekForString, 
+    replaceDateFormats,
+    normalizeDayAsString,
+    replaceDateTemplatesWithMomentsFormats
 
-/*
-declare module Comm {
-    export const Comfiguration  = _Configuration; 
-    export const TemplateInfo  = _TemplateInfo; 
-    export const Util  = _Util; 
-}
+} from './dates';
 
-export namespace Common {
-    export const Comfiguration  = _Configuration; 
-    export const TemplateInfo  = _TemplateInfo; 
-    export const Util  = _Util; 
+export {
+    denormalizeFilename, 
+    getDayAsString, 
+    isString, 
+    normalizeFilename, 
+    prefixZero, 
+    stringIsNotEmpty
+} from './strings';
+
+export {
+    checkIfFileIsAccessible, 
+    getEntryPathForDate, 
+    getFileInURI, 
+    getFilePathInDateFolder, 
+    getPathAsString, 
+    getPathOfMonth, 
+    getDateFromURI, 
+    getDateFromURIAndConfig
 }
-*/
+from './paths'
