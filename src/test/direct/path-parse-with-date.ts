@@ -1,24 +1,43 @@
 import moment from "moment";
+import * as assert from 'assert';
 
-console.log("Starting test to aquire date from uri"); 
+
 
 const regExpDateFormats: RegExp = new RegExp(/\$\{(?:(year|month|day|localTime|localDate|weekday)|(d:[\s\S]+?))\}/g);
-
+let base = "c:\\Users\\user\\Git\\vscode-journal\\test\\workspace\\journal"
 let pathTpl = "${base}/${year}-${month}"; 
 let fileTpl = "${year}${month}${day}.${ext}"; 
-let base = "c:\\Users\\pajom\\Git\\vscode-journal\\test\\workspace\\journal"
-let uri = "c:\\Users\\pajom\\Git\\vscode-journal\\test\\workspace\\journal\\2021-08\\20210809.md";
+let uri = "file:/Users/user/Git/vscode-journal/test/workspace/journal/2020-07/20200709.md";
 
+console.log("Test to acquire date from uri: ", uri); 
 getDateFromURI(uri, pathTpl, fileTpl, base)
-.then(result => {
-    console.log(result); 
-}); 
+.then(result => assertCorrectDate(result)); 
+
+pathTpl = "${year}/${month}/${day}"; 
+fileTpl = "journal.${ext}"; 
+uri = "file:/Users/user/Git/vscode-journal/test/workspace/journal/2020/07/09/journal.md";
+console.log("Test to acquire date from uri: ", uri); 
+getDateFromURI(uri, pathTpl, fileTpl, base)
+.then(result => assertCorrectDate(result)); 
 
 
+pathTpl = "${base}"; 
+fileTpl = "${year}-${month}-${day}"; 
+uri = "file:/Users/user/Git/vscode-journal/test/workspace/journal/2020-07-09.md";
+console.log("Test to acquire date from uri: ", uri); 
+getDateFromURI(uri, pathTpl, fileTpl, base)
+.then(result => assertCorrectDate(result)); 
+
+pathTpl = "${base}"; 
+fileTpl = "${d:YYYY-MM-DD}"; 
+uri = "file:/Users/user/Git/vscode-journal/test/workspace/journal/2020-07-09.md";
+console.log("Test to acquire date from uri: ", uri); 
+getDateFromURI(uri, pathTpl, fileTpl, base)
+.then(result => assertCorrectDate(result)); 
 
 export async function getDateFromURI(uri: string, pathTemplate: string, fileTemplate: string, basePath: string) {
-    fileTemplate = fileTemplate.substr(0, fileTemplate.lastIndexOf(".")); 
-
+    if(fileTemplate.indexOf(".") > 0) fileTemplate = fileTemplate.substr(0, fileTemplate.lastIndexOf(".")); 
+    if(pathTemplate.startsWith("${base}/")) pathTemplate = pathTemplate.substring("${base}/".length); 
 
     let year: number | undefined; 
     let month: number | undefined; 
@@ -42,11 +61,13 @@ export async function getDateFromURI(uri: string, pathTemplate: string, fileTemp
 
     pathParts.forEach((element, index) => {
         if(element.trim().length === 0) return; 
+        else if(element.startsWith("file:")) return; 
         else if(basePath.search(element) >= 0) return; 
         else if(index+1 == pathParts.length) fileStr = element.substr(0, element.lastIndexOf("."))
         else {
             pathElements.concat(element)
-            pathStr += "/"+element; 
+            if(pathStr.length > 1) pathStr += "/"
+            pathStr += element; 
         }
     });
 
@@ -65,6 +86,7 @@ export async function getDateFromURI(uri: string, pathTemplate: string, fileTemp
     // handle path segment (we just compare indicies)
     /*
     pathTpl.split("/").forEach((element, index) => {
+    
         if(element.match("")
     })*/
     let mom: moment.Moment = moment(fileStr, fileTemplate); 
@@ -79,8 +101,21 @@ export async function getDateFromURI(uri: string, pathTemplate: string, fileTemp
     let a = moment(fileStr, entryMomentTpl); 
     let b = moment(pathStr, pathMomentTpl); 
     
+    
+    console.log("Parsed file string: ", a.format());
+    console.log("Parsed path string: ", b.format());
 
-    return new Date(); 
+    let result = moment(); 
+
+    // consolidate the two
+    if(fileTemplate.indexOf("${year}")>=0) result = result.year(a.year())
+    else result = result.year(b.year())
+    if(fileTemplate.indexOf("${month}")>=0) result = result.month(a.month())
+    else result = result.month(b.month())
+    if(fileTemplate.indexOf("${day}")>=0) result = result.date(a.date())
+    else result = result.date(b.date())
+
+    return result.toDate(); 
 
 }
 
@@ -117,4 +152,11 @@ export function replaceDateTemplatesWithMomentsFormats(template: string): string
     });
     return template;
 
+}
+
+function assertCorrectDate(date: Date): void {
+    let iso = date.toISOString(); 
+    let result = iso.substring(0, iso.indexOf('T')); 
+    console.log("Parsed result is: ", result); 
+    assert.match(result, /2020-07-09/); 
 }
