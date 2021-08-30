@@ -20,6 +20,7 @@
 import moment from 'moment';
 import * as vscode from 'vscode';
 import * as J from '../..';
+import { ShiftTarget } from '../commands/shift-task';
 
 
 /**
@@ -49,19 +50,20 @@ export class OpenTaskActions implements vscode.CodeActionProvider {
         try {
             if(! this.isOpenTask(document, range)) return; 
             return Promise.all([
-                this.createCompleteTaskAction(document, range), 
-                this.createShiftTaskAction(document, range)
+                this.createCompleteTaskAction(`Complete this task`, document, range), 
+                this.createShiftTaskAction(`Copy this task to next day's entry`, document, range, ShiftTarget.NEXT_DAY), 
+                this.createShiftTaskAction(`Copy this task to tomorrow's entry`, document, range, ShiftTarget.TOMORROW), 
+                this.createShiftTaskAction(`Copy this task to today's entry`, document, range, ShiftTarget.TODAY)
                 ]
             ); 
         } catch (error) {
             throw new Error(error); 
         }
-    }
-
-
-    private async createCompleteTaskAction(document: vscode.TextDocument, range: vscode.Range | vscode.Selection): Promise<vscode.CodeAction> {
+    } 
+    
+    private async createCompleteTaskAction(description: string, document: vscode.TextDocument, range: vscode.Range | vscode.Selection): Promise<vscode.CodeAction> {
         try {
-            const fix = new vscode.CodeAction(`Complete this task`, vscode.CodeActionKind.QuickFix);
+            const fix = new vscode.CodeAction(description, vscode.CodeActionKind.QuickFix);
 
 		    fix.edit = new vscode.WorkspaceEdit();
 		    fix.edit.replace(document.uri, this.getTaskBoxRange(document, range) , "[x]");
@@ -79,19 +81,20 @@ export class OpenTaskActions implements vscode.CodeActionProvider {
         }
     }
 
-    private async createShiftTaskAction(document: vscode.TextDocument, range: vscode.Range | vscode.Selection): Promise<vscode.CodeAction> {
+    private async createShiftTaskAction(description: string, document: vscode.TextDocument, range: vscode.Range | vscode.Selection, target: ShiftTarget): Promise<vscode.CodeAction> {
         try {
-            const fix = new vscode.CodeAction(`Shift this task to the next day`, vscode.CodeActionKind.QuickFix);
+            const fix = new vscode.CodeAction(description, vscode.CodeActionKind.QuickFix);
 
 		    fix.edit = new vscode.WorkspaceEdit();
 		    fix.edit.replace(document.uri, this.getTaskBoxRange(document, range) , "[>]");
-            fix.command = { command: "journal.commands.copy-task", title: 'Copy a task', tooltip: 'Copy a task to another entry.', arguments: [document, range] };
+            fix.command = { command: "journal.commands.copy-task", title: 'Copy a task', tooltip: 'Copy a task to another entry.', arguments: [document, range, target] };
 		    return fix;
 
         } catch (error) {
             throw error; 
         }
     }
+
 
     private getTaskBoxRange(document: vscode.TextDocument, range: vscode.Range | vscode.Selection ): vscode.Range {
         const line: vscode.TextLine = document.lineAt(range.start.line); 

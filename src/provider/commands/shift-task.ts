@@ -22,6 +22,12 @@ import * as vscode from 'vscode';
 import * as J from '../..';
 import { denormalizeFilename } from '../../util';
 
+export enum ShiftTarget {
+    NEXT_DAY,  // the day after the currently active entries date (independent from current date)
+    TOMORROW,  
+    TODAY
+}
+
 /**
  * The shift task command is active for open tasks, e.g. '-[ ] some text' and triggered by the codeaction in complete-task
  * 
@@ -43,15 +49,39 @@ import { denormalizeFilename } from '../../util';
     }    
 
     
-    public run(document: vscode.TextDocument, range: vscode.Range | vscode.Selection) {
+    public async run(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, target: ShiftTarget) {
         console.log("command called with ", document.uri, "and range", range);
-        
-        J.Util.getDateFromURIAndConfig(document.uri, this.ctrl.config)
+        const taskString: string = ""; 
 
-        ; 
-        // compute date from document
+        switch(target) {
+            case ShiftTarget.NEXT_DAY: this.insertTaskInNextDaysEntry(document, taskString); 
+            case ShiftTarget.TODAY: this.insertTaskToTodaysEntry(document, taskString); 
+            case ShiftTarget.TOMORROW: this.insertTaskToTomorrowsEntry(document, taskString); 
+        }
+
+
     
         return; 
     }
+     
+    private async insertTaskToTomorrowsEntry(document: vscode.TextDocument, taskString: string) {
+        
+
+
+         throw new Error('Method not implemented.');
+     }
+     
+     private async insertTaskToTodaysEntry(document: vscode.TextDocument, taskString: string) {
+         throw new Error('Method not implemented.');
+     }
+     
+     private async insertTaskInNextDaysEntry(document: vscode.TextDocument, taskString: string) {
+        let entryDate: Date = await J.Util.getDateFromURIAndConfig(document.uri.toString(), this.ctrl.config);
+
+        let nextDate = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate()+1); 
+
+        console.log("inserting line in new entry for date: ", nextDate)
+         throw new Error('Method not implemented.');
+     }
 
  }

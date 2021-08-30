@@ -54,70 +54,53 @@ export function getPathAsString(path: Path.ParsedPath): string {
  * 
  * This function expects only paths to valid journal entries, scoped entries are ignored
  * 
+ * Check direct test "path-parse-with-date" 
+ * 
  * @param entryPath 
  */
-export async function getDateFromURI(uri: string, pathTemplate: string, fileTemplate: string, basePath: string) {
-    fileTemplate = fileTemplate.substr(0, fileTemplate.lastIndexOf(".")); 
-
-
-
-    let year: number | undefined; 
-    let month: number | undefined; 
-    let day: number | undefined; 
-
-    // input template is something like 
-    //  "path": "${base}/${year}/${month}", -> sdlkjfwejf/2021/12
-    //  "file": "${day}.${ext}"  -> 21.md
-    //  but also file: ${year}-${month}-${day}.md
-
+ export async function getDateFromURI(uri: string, pathTemplate: string, fileTemplate: string, basePath: string): Promise<Date> {
+    if(fileTemplate.indexOf(".") > 0) fileTemplate = fileTemplate.substr(0, fileTemplate.lastIndexOf(".")); 
+    if(pathTemplate.startsWith("${base}/")) pathTemplate = pathTemplate.substring("${base}/".length); 
 
     // go through each element in path and assign it to a date part or skip it
     let pathParts = uri.split("/");
 
-
     // check if part is in base path (if yes, we ignore)
     // for the rest: last part is file, everything else path pattern
     let pathElements: string[] = []
-    let pathStr: string = ""; 
-    let fileStr = ""; 
+    let trimmedPathString: string = ""; 
+    let trimmedFileString = ""; 
 
     pathParts.forEach((element, index) => {
         if(element.trim().length === 0) return; 
+        else if(element.startsWith("file:")) return; 
         else if(basePath.search(element) >= 0) return; 
-        else if(index+1 == pathParts.length) fileStr = element.substr(0, element.lastIndexOf("."))
+        else if(index+1 == pathParts.length) trimmedFileString = element.substr(0, element.lastIndexOf("."))
         else {
             pathElements.concat(element)
-            pathStr += "/"+element; 
+            if(trimmedPathString.length > 1) trimmedPathString += "/"
+            trimmedPathString += element; 
         }
     });
 
-    // ${base}/${year}/${month}-${day}/${LD}.${ext}
-    // remove base and ext variables
-    // tokenize in variables and loop through matches. 
-    // replace each match with momemnt format and call moment.parse
 
-    // path: 2021-08
-    // file: 2021-08-12.md
+    const entryDateFormat = replaceDateTemplatesWithMomentsFormats(fileTemplate); 
+    const pathDateFormat = replaceDateTemplatesWithMomentsFormats(pathTemplate); 
 
-    // handle path segment (we just compare indicies)
-    /*
-    pathTpl.split("/").forEach((element, index) => {
-        if(element.match("")
-    })*/
-    let mom: moment.Moment = moment(fileStr, fileTemplate); 
-
-    const entryMomentTpl = replaceDateTemplatesWithMomentsFormats(fileTemplate); 
-    const pathMomentTpl = replaceDateTemplatesWithMomentsFormats(pathTemplate); 
-
-    // filestr: "20210809"
-    // path str: "/202108"
-    // path tpl: ${year}-${month}"
-
-    let a = moment(fileStr, entryMomentTpl); 
-    let b = moment(pathStr, pathMomentTpl); 
+    let parsedDateFromFile = moment(trimmedFileString, entryDateFormat); 
+    let parsedDateFromPath = moment(trimmedPathString, pathDateFormat); 
     
+    let result = moment(); 
 
-    return new Date(); 
+    // consolidate the two
+    if(fileTemplate.indexOf("${year}")>=0) result = result.year(parsedDateFromFile.year())
+    else result = result.year(parsedDateFromPath.year())
+    if(fileTemplate.indexOf("${month}")>=0) result = result.month(parsedDateFromFile.month())
+    else result = result.month(parsedDateFromPath.month())
+    if(fileTemplate.indexOf("${day}")>=0) result = result.date(parsedDateFromFile.date())
+    else result = result.date(parsedDateFromPath.date())
+
+    return result.toDate(); 
 
 }
 
