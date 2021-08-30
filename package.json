@@ -46,8 +46,7 @@
     "onCommand:journal.open",
     "onCommand:journal.printDuration",
     "onCommand:journal.printTime",
-    "onCommand:journal.printSum",
-    "onCommand:journal.test"
+    "onCommand:journal.printSum"
   ],
   "main": "./out/extension.js",
   "contributes": {

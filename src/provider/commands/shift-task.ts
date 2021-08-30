@@ -17,14 +17,12 @@
 // 
 'use strict';
 
-import path from 'path';
 import * as vscode from 'vscode';
 import * as J from '../..';
-import { denormalizeFilename } from '../../util';
 
 export enum ShiftTarget {
     NEXT_DAY,  // the day after the currently active entries date (independent from current date)
-    TOMORROW,  
+    TOMORROW,
     TODAY
 }
 
@@ -37,51 +35,56 @@ export enum ShiftTarget {
  * - insert the task to the entry of the new date: '-[ ] some text (copied from [../12.md](2021-05-12))'
  */
 
- export class ShiftTaskCommand implements vscode.Command {
-     title: string = "Shift selected task"
-     command: string = "journal.commands.copy-task"
-     tooltip?: string | undefined;
-     arguments?: any[] | undefined; 
+export class ShiftTaskCommand implements vscode.Command {
+    title: string = "Shift selected task";
+    command: string = "journal.commands.copy-task";
 
-     
-    constructor(public ctrl: J.Util.Ctrl) {
-        
-    }    
 
-    
-    public async run(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, target: ShiftTarget) {
+    protected constructor(public ctrl: J.Util.Ctrl) { }
+
+    public async dispose(): Promise<void> {
+        // do nothing
+    }
+
+    public static create(ctrl: J.Util.Ctrl): vscode.Disposable {
+        const cmd = new this(ctrl);
+        vscode.commands.registerCommand(cmd.command, (document, range, target) => cmd.execute(document, range, target));
+        return cmd;
+    }
+
+    public async execute(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, target: ShiftTarget) {
         console.log("command called with ", document.uri, "and range", range);
-        const taskString: string = ""; 
+        const taskString: string = "";
 
-        switch(target) {
-            case ShiftTarget.NEXT_DAY: this.insertTaskInNextDaysEntry(document, taskString); 
-            case ShiftTarget.TODAY: this.insertTaskToTodaysEntry(document, taskString); 
-            case ShiftTarget.TOMORROW: this.insertTaskToTomorrowsEntry(document, taskString); 
+        switch (target) {
+            case ShiftTarget.NEXT_DAY: this.insertTaskInNextDaysEntry(document, taskString);
+            case ShiftTarget.TODAY: this.insertTaskToTodaysEntry(document, taskString);
+            case ShiftTarget.TOMORROW: this.insertTaskToTomorrowsEntry(document, taskString);
         }
 
 
-    
-        return; 
+
+        return;
     }
-     
+
     private async insertTaskToTomorrowsEntry(document: vscode.TextDocument, taskString: string) {
-        
 
 
-         throw new Error('Method not implemented.');
-     }
-     
-     private async insertTaskToTodaysEntry(document: vscode.TextDocument, taskString: string) {
-         throw new Error('Method not implemented.');
-     }
-     
-     private async insertTaskInNextDaysEntry(document: vscode.TextDocument, taskString: string) {
+
+        throw new Error('Method not implemented.');
+    }
+
+    private async insertTaskToTodaysEntry(document: vscode.TextDocument, taskString: string) {
+        throw new Error('Method not implemented.');
+    }
+
+    private async insertTaskInNextDaysEntry(document: vscode.TextDocument, taskString: string) {
         let entryDate: Date = await J.Util.getDateFromURIAndConfig(document.uri.toString(), this.ctrl.config);
 
-        let nextDate = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate()+1); 
+        let nextDate = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate() + 1);
 
-        console.log("inserting line in new entry for date: ", nextDate)
-         throw new Error('Method not implemented.');
-     }
+        console.log("inserting line in new entry for date: ", nextDate);
+        throw new Error('Method not implemented.');
+    }
 
- }
+}

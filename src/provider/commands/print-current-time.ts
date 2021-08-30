@@ -19,13 +19,13 @@
 
 import * as vscode from 'vscode';
 import * as J from '../..';
+import { ScopedTemplate } from '../../../out/src/provider';
 
 
-export class OpenJournalWorkspaceCommand implements vscode.Command, vscode.Disposable {
-    title: string = 'Open the journal workspace'; 
-    command: string = 'journal.open'; 
+export class PrintTimeCommand implements vscode.Command, vscode.Disposable {
+    title: string = "Print current time";
+    command: string = "journal.printTime";
 
-     
     protected constructor(public ctrl: J.Util.Ctrl) {}
 
     public async dispose(): Promise<void> {
@@ -34,27 +34,32 @@ export class OpenJournalWorkspaceCommand implements vscode.Command, vscode.Dispo
 
     public static create(ctrl: J.Util.Ctrl): vscode.Disposable {
         const cmd = new this(ctrl); 
-        vscode.commands.registerCommand(cmd.command, () => cmd.openWorkspace())
+        vscode.commands.registerCommand(cmd.command, () => cmd.printTime());
         return cmd; 
     }
 
     /**
-     * Called by command 'Journal:open'. Opens a new windows with the Journal base directory as root. 
-     *
-     * @returns {Q.Promise<void>}
-     * @memberof JournalCommands
-     */
-    public async openWorkspace(): Promise<void> {
+    * Prints the current time at the cursor postion
+    */
+    public async printTime(): Promise<void> {
         this.ctrl.logger.trace("Executing command: ", this.command);
 
-        let path = vscode.Uri.file(this.ctrl.config.getBasePath());
-
         try {
-            vscode.commands.executeCommand('vscode.openFolder', path, true)
+            let editor: vscode.TextEditor = <vscode.TextEditor>vscode.window.activeTextEditor;
+
+            // Todo: identify scope of the active editot
+            let template: ScopedTemplate = await this.ctrl.config.getTimeStringTemplate();
+
+            let currentPosition: vscode.Position = editor.selection.active;
+
+            this.ctrl.inject.injectString(editor.document, template.value!, currentPosition);
+
         } catch (error) {
             this.ctrl.logger.error("Failed to execute command: ", this.command, "Reason: ", error);
-            this.ctrl.ui.showError("Failed to open the journal workspace.");
+            this.ctrl.ui.showError("Failed to print current time.");
         }
     }
+
+
 
 }

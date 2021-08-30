@@ -18,7 +18,7 @@
 
 
 export { Ctrl }  from './controller'; 
-export { Startup } from './startup';
+export { Startup } from '../provider/startup';
 export { Logger }  from './logger';
 
 export {
