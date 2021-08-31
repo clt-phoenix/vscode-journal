@@ -23,7 +23,6 @@ import * as Path from 'path';
 import * as Q from 'q';
 import * as vscode from 'vscode';
 import * as J from '../';
-import { JournalPageType, ScopedTemplate } from '../provider/conf';
 
 export interface FileEntry {
     path: string;
@@ -31,7 +30,7 @@ export interface FileEntry {
     scope: string;
     update_at: number;
     created_at: number;
-    type: JournalPageType;
+    type: J.Model.JournalPageType;
 }
 
 export interface BaseDirectory {
@@ -59,91 +58,52 @@ export class Reader {
      * @returns {Q.Promise<[string]>}
      * @memberof Reader
      */
-    public getPreviouslyAccessedFiles(thresholdInMs: number, callback: Function, picker: any, type: JournalPageType, directories: BaseDirectory[]): void {
-
-        /*
-        deferred.resolve(this.previousEntries.map((f: FileEntry) => {
-            return f.path; 
-        })); */
+    public async getPreviouslyAccessedFiles(thresholdInMs: number, callback: Function, picker: any, type: J.Model.JournalPageType, directories: BaseDirectory[]): Promise<void> {
 
         // go into base directory, find all files changed within the last 40 days
         // for each file, check if it is an entry, a note or an attachement
-        Q.fcall(() => {
-            this.ctrl.logger.trace("Entering getPreviousJournalFiles() in actions/reader.ts and directory: " + directories);
-            directories.forEach(directory => {
-                this.walkDir(directory.path, thresholdInMs, (entry: FileEntry) => {
-                    /*if (this.previousEntries.findIndex(e => e.path.startsWith(entry.path)) == -1) {
-                        
-                        this.previousEntries.push(entry);
-                    }*/
+        this.ctrl.logger.trace("Entering getPreviousJournalFiles() in actions/reader.ts and directory: " + directories);
+        directories.forEach(directory => {
+            this.walkDir(directory.path, thresholdInMs, async (entry: FileEntry) => {
 
-                    entry.type = this.inferType(Path.parse(entry.path));
-                    entry.scope = directory.scope;
-                    // this adds the item to the quickpick list of vscode (the addItem Function)
-                    callback(entry, picker, type);
+                entry.type = await J.Util.inferType(Path.parse(entry.path), this.ctrl.config.getFileExtension());
+                entry.scope = directory.scope;
+                // this adds the item to the quickpick list of vscode (the addItem Function)
+                callback(entry, picker, type);
 
-                });
             });
         });
     }
 
-    public getPreviouslyAccessedFilesSync(thresholdInMs: number, directories: BaseDirectory[]): Q.Promise<FileEntry[]> {
-
-        return Q.Promise<FileEntry[]>((resolve, reject) => {
-            try {
-                this.ctrl.logger.trace("Entering getPreviousJournalFilesSync() in actions/reader.ts");
-
-                let result: FileEntry[] = [];
-
-                // go into base directory, find all files changed within the last 40 days (see config)
-                // for each file, check if it is an entry, a note or an attachement
-                directories.forEach(directory => {
-                    this.walkDirSync(directory.path, thresholdInMs, (entry: FileEntry) => {
-                        /*if (this.previousEntries.findIndex(e => e.path.startsWith(entry.path)) == -1) {
-                            this.inferType(entry);
-                          //  this.previousEntries.push(entry);
-                        }*/
-                        entry.type = this.inferType(Path.parse(entry.path));
-                        entry.scope = directory.scope;
-                        result.push(entry);
-                    });
-                });
-                resolve(result);
-            } catch (error) {
-                reject(error);
-            }
-
-        });
-
-
-        /*
-        
-            */
-
-    }
-
     /**
-     * Tries to infer the file type from the path by matching against the configured patterns
-     * @param entry 
+     * Loads previous entries which have been edited within the last x days (x = threshold in milliseconds)
+     * 
+     * @param thresholdInMs 
+     * @param directories 
+     * @returns 
      */
-    inferType(entry: Path.ParsedPath): JournalPageType {
+    public async getPreviouslyAccessedFilesSync(thresholdInMs: number, directories: BaseDirectory[]): Promise<FileEntry[]> {
 
-        if (!entry.ext.endsWith(this.ctrl.config.getFileExtension())) {
-            return JournalPageType.ATTACHEMENT; // any attachement
-        } else
+        this.ctrl.logger.trace("Entering getPreviousJournalFilesSync() in actions/reader.ts");
 
-            // this is getting out of hand if we need to infer it by scanning the patterns from the settings.
-            // We keep it simple: if the filename contains only digits and special chars, we assume it 
-            // is a journal entry. Everything else is a journal note. 
-            if (entry.name.match(/^[\d|\-|_]+$/gm)) {
-                return JournalPageType.ENTRY; // any entry
-            } else {
-                return JournalPageType.NOTE; // anything else is a note
-            }
+        let result: FileEntry[] = [];
 
+        // go into base directory, find all files changed within the last 40 days (see config)
+        // for each file, check if it is an entry, a note or an attachement
+        directories.forEach(directory => {
+            this.walkDirSync(directory.path, thresholdInMs, async (entry: FileEntry) => {
+                /*if (this.previousEntries.findIndex(e => e.path.startsWith(entry.path)) == -1) {
+                    this.inferType(entry);
+                    //  this.previousEntries.push(entry);
+                }*/
+                entry.type = await J.Util.inferType(Path.parse(entry.path), this.ctrl.config.getFileExtension());
+                entry.scope = directory.scope;
+                result.push(entry);
+            });
+        });
+        return result; 
 
     }
-
 
 
     /**
@@ -205,13 +165,11 @@ export class Reader {
         });
     }
 
-    public async checkDirectory(d: Date, entries: string[]): Promise<void> {
+    private async checkDirectory(d: Date, entries: string[]): Promise<void> {
         await this.ctrl.config.getNotesPathPattern(d)
             .then(f => {
-                console.log(f.value, "for", d);
                 return f.value!;
             }).then(path => {
-                console.log("Checking " + path);
                 fs.readdir(path, (err, files: string[]) => {
                     if (err) { return; }
                     else {
@@ -246,8 +204,8 @@ export class Reader {
                     let loc = match![1];
 
                     // parse to path to resolve relative paths (starting with ./)
-                    let dirToEntry: string = Path.parse(doc.uri.fsPath).dir // resolve assumes directories, not files
-                    let absolutePath : string = Path.resolve(dirToEntry, loc); 
+                    let dirToEntry: string = Path.parse(doc.uri.fsPath).dir; // resolve assumes directories, not files
+                    let absolutePath: string = Path.resolve(dirToEntry, loc);
 
                     references.push(vscode.Uri.file(absolutePath));
                 }
@@ -283,7 +241,7 @@ export class Reader {
                             if (!locations.find(elem => elem.path === uri.path)) {
                                 locations.push(uri);
                             }
-                        }); 
+                        });
                     });
                     return locations;
                 })
@@ -312,11 +270,11 @@ export class Reader {
 
                 // FIXME: scan note foldes of new configurations
                 this.ctrl.configuration.getNotesFilePattern(date, scope)
-                    .then((_filePattern: ScopedTemplate) => {
+                    .then((_filePattern: J.Model.ScopedTemplate) => {
                         filePattern = _filePattern.value!.substring(0, _filePattern.value!.lastIndexOf(".")); // exclude file extension, otherwise search does not work
                         return this.ctrl.configuration.getNotesPathPattern(date, scope);
                     })
-                    .then((pathPattern: ScopedTemplate) => {
+                    .then((pathPattern: J.Model.ScopedTemplate) => {
                         pathPattern.value = Path.normalize(pathPattern.value!);
 
                         // check if directory exists
@@ -326,7 +284,7 @@ export class Reader {
                                 fs.readdir(pathPattern.value!, (err: NodeJS.ErrnoException | null, files: string[]) => {
                                     try {
                                         if (J.Util.isNotNullOrUndefined(err)) { reject(err!.message); }
-                                        this.ctrl.logger.debug("Found ", files.length+"", " files in notes folder at path: ", JSON.stringify(pathPattern.value!));
+                                        this.ctrl.logger.debug("Found ", files.length + "", " files in notes folder at path: ", JSON.stringify(pathPattern.value!));
 
                                         let result = files.filter((name: string) => {
                                             // filter, check if no temporary files are included
@@ -389,12 +347,12 @@ export class Reader {
 
         // TODO: Check if file exists, if not prefix with "untitled:"
         try {
-            const doc: vscode.TextDocument = await this.ctrl.ui.openDocument(path); 
-            return doc; 
+            const doc: vscode.TextDocument = await this.ctrl.ui.openDocument(path);
+            return doc;
         } catch (error) {
-            
+
             this.ctrl.logger.error("Error in loadNote() in  actions/reader.ts for path: ", path, "Reason: ", error);
-            throw error; 
+            throw error;
         }
         /*
         return Q.Promise<vscode.TextDocument>((resolve, reject) => {

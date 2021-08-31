@@ -17,8 +17,21 @@
 // 
 
 
-import {Input, SelectedInput, NoteInput}  from './input';
-import {TemplateInfo, InlineTemplate} from './templates'; 
+export * from './input';
+export * from './types';
+export * from './templates';
+
+/*import {FilePattern, PathTemplate, HeaderTemplate, InlineTemplate, ScopedTemplate, TemplateInfo } from './templates'; 
  
-export {Input, SelectedInput, NoteInput, TemplateInfo, InlineTemplate};
+export {Input, 
+    SelectedInput, 
+    NoteInput, 
+    TemplateInfo, 
+    InlineTemplate, 
+    FilePattern, 
+    HeaderTemplate, 
+    PathTemplate, 
+    ScopedTemplate
+};
 // export { PickDayItem } from './pickDayItem';
+*/

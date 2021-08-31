@@ -20,7 +20,6 @@
 
 import * as vscode from 'vscode';
 import * as J from '../.';
-import * as Q from 'q';
 
 /** 
  * Anything which modifies the text documents goes here. 
@@ -61,7 +60,7 @@ export class Writer {
         this.ctrl.logger.trace("Entering createEntryForPath() in ext/writer.ts for path: ", path);
 
         try {
-            let tpl: J.Provider.HeaderTemplate = await this.ctrl.config.getEntryTemplate(date);
+            let tpl: J.Model.HeaderTemplate = await this.ctrl.config.getEntryTemplate(date);
                         
             let content = tpl.value || ""; 
             return this.ctrl.writer.createSaveLoadTextDocument(path, content);

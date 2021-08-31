@@ -32,7 +32,6 @@ export class Parser {
     private scopeExpression: RegExp = /\s#\w+\s/;
 
 
-
     constructor(public ctrl: J.Util.Ctrl) {
         this.today = new Date();
     }
@@ -50,64 +49,50 @@ export class Parser {
     public async resolveNotePathForInput(input: J.Model.Input, scopeId?: string): Promise<string> {
         this.ctrl.logger.trace("Entering resolveNotePathForInput() in actions/parser.ts");
 
-        return Q.Promise<string>((resolve, reject) => {
+        // Unscoped Notes are always created in today's folder
+        let date = new Date();
+        let path: string = "";
+        input.scope = SCOPE_DEFAULT;  
 
-            // Unscoped Notes are always created in today's folder
-            let date = new Date();
-            let path: string = "";
-            input.scope = SCOPE_DEFAULT;  
+        // purge all tags from filename
 
-            // purge all tags from filename
+        // all tags are filtered out. tags representing scopes are recognized here for resolving the note path.
+        input.text.match(/#\w+\s/g)?.forEach(tag => {
+            if(J.Util.isNullOrUndefined(tag) || tag!.length === 0) {return;} 
 
-            // all tags are filtered out. tags representing scopes are recognized here for resolving the note path.
-            input.text.match(/#\w+\s/g)?.forEach(tag => {
-                if(J.Util.isNullOrUndefined(tag) || tag!.length === 0) {return;} 
+            this.ctrl.logger.trace("Tags in input string: "+tag);
+            
+            // remove from value
+            input.tags.push(tag.trim().substr(0, tag.length-1)); 
+            input.text = input.text.replace(tag, " "); 
 
-                this.ctrl.logger.trace("Tags in input string: "+tag);
-                
-                // remove from value
-                input.tags.push(tag.trim().substr(0, tag.length-1)); 
-                input.text = input.text.replace(tag, " "); 
-
-                // identify scope, input is #tag
-                this.ctrl.logger.trace("Scopes defined in configuration: "+this.ctrl.configuration.getScopes());
-                let scope: string | undefined = this.ctrl.configuration.getScopes().filter(name => name === tag.trim().substring(1, tag.length)).pop(); 
-               
-                
-                if(J.Util.isNotNullOrUndefined(scope) && scope!.length > 0) {
-                    input.scope = scope!; 
-                } 
-                
-                this.ctrl.logger.trace("Identified scope in input: "+input.scope);
-                
-            });
+            // identify scope, input is #tag
+            this.ctrl.logger.trace("Scopes defined in configuration: "+this.ctrl.configuration.getScopes());
+            let scope: string | undefined = this.ctrl.configuration.getScopes().filter(name => name === tag.trim().substring(1, tag.length)).pop(); 
+            
+            
+            if(J.Util.isNotNullOrUndefined(scope) && scope!.length > 0) {
+                input.scope = scope!; 
+            } 
+            
+            this.ctrl.logger.trace("Identified scope in input: "+input.scope);
+            
+        });
 
 
-            let inputForFileName: string = J.Util.normalizeFilename(input.text);
+        let inputForFileName: string = J.Util.normalizeFilename(input.text);
+        let filePattern = await this.ctrl.configuration.getNotesFilePattern(date, inputForFileName, input.scope); 
+        let pathPattern = await this.ctrl.configuration.getNotesPathPattern(date, input.scope); 
+        return Path.resolve(pathPattern.value!, filePattern.value!); 
 
-            Q.all([
-                this.ctrl.configuration.getNotesFilePattern(date, inputForFileName, input.scope), 
-                this.ctrl.configuration.getNotesPathPattern(date, input.scope), 
-                ])
-            .then(([fileTemplate, pathTemplate]) => {
-                path = Path.resolve(pathTemplate.value!, fileTemplate.value!);
-                this.ctrl.logger.trace("Resolved path for note is", path);
-                resolve(path); 
-            })
-            .catch(error => {
-                this.ctrl.logger.error(error);
-                reject(error);
-
-            })
-            .done();
-
-        }); 
-
+           
     }
 
 
 
     public parseNotesInput(input: string): Q.Promise<J.Model.Input> {
+        
+
         return Q.Promise<J.Model.Input>((resolve, reject) => {
             this.ctrl.logger.trace("Entering parseNotesInput() in actions/parser.ts");
 
@@ -116,7 +101,6 @@ export class Parser {
             }
 
             // generate filename
-
 
 
         });

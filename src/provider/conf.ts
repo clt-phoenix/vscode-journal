@@ -20,47 +20,27 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as Path from 'path';
-import * as Q from 'q';
-import moment from 'moment';
-import { Util } from '..';
+import * as J from '../.'
 import { isNotNullOrUndefined, isNullOrUndefined } from '../util';
 
 export const SCOPE_DEFAULT: string = "default";
 
 
 
-export enum JournalPageType {
-    NOTE,
-    ENTRY,
-    ATTACHEMENT
-}
-
-export interface ScopedTemplate {
-    name?: string;
-    scope?: string;
-    template: string;
-    value?: string;
-}
 
 
 
-export interface FilePattern extends ScopedTemplate {
-    type: JournalPageType;
-}
-
-export interface PathTemplate extends ScopedTemplate {
-    type: JournalPageType;
-}
-
-export interface HeaderTemplate extends ScopedTemplate {
-}
-
-export interface InlineTemplate extends ScopedTemplate {
-    after: string;
-}
 
 /** types in the settings.json */
 type PatternDefinition = { notes: { path: string; file: string }; entries: { path: string; file: string } };
+
+type ScopeDefinition = {
+    "name": string;
+    "base": string;
+    "patterns": PatternDefinition;
+    "templates": J.Model.InlineTemplate[];
+
+};
 
 var DefaultPatternDefinition: PatternDefinition =
 {
@@ -74,13 +54,7 @@ var DefaultPatternDefinition: PatternDefinition =
     }
 };
 
-type ScopeDefinition = {
-    "name": string;
-    "base": string;
-    "patterns": PatternDefinition;
-    "templates": InlineTemplate[];
 
-};
 
 /**
  * Manages access to journal configuration. 
@@ -91,7 +65,7 @@ type ScopeDefinition = {
 export class Configuration {
 
 
-    private patterns: Map<string, ScopedTemplate> = new Map();
+    private patterns: Map<string, J.Model.ScopedTemplate> = new Map();
 
 
     constructor(public config: vscode.WorkspaceConfiguration) {
@@ -152,7 +126,7 @@ export class Configuration {
                     let base: string[] = scopes!.filter(v => v.name === scope)
                         .map(scopeDefinition => scopeDefinition.base)
                         .map(scopedBase => {
-                            if(Util.stringIsNotEmpty(scopedBase)) {
+                            if(J.Util.stringIsNotEmpty(scopedBase)) {
                                 scopedBase = scopedBase
                                     .replace("${homeDir}", os.homedir())
                                     .replace("${workspaceFolder}", workspaceRoot)
@@ -203,37 +177,31 @@ export class Configuration {
      * 
      * @param _scopeId default or individual
      */
-    public getNotesPathPattern(date: Date, _scopeId?: string): Q.Promise<ScopedTemplate> {
-        return Q.Promise((onSuccess, onError) => {
-            try {
-                let definition: string | undefined;
-                let scopedTemplate: ScopedTemplate = {
-                    scope: SCOPE_DEFAULT,
-                    template: ""
-                };
-                if (this.resolveScope(_scopeId) === SCOPE_DEFAULT) {
-                    definition = this.config.get<PatternDefinition>("pattern")?.notes?.path;
-                } else {
-                    definition = this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name === _scopeId).pop()?.patterns?.notes?.path;
-                    scopedTemplate.scope = _scopeId!;
-                }
+    public async getNotesPathPattern(date: Date, _scopeId?: string): Promise<J.Model.ScopedTemplate> {
+        
+        let definition: string | undefined;
+        let scopedTemplate: J.Model.ScopedTemplate = {
+            scope: SCOPE_DEFAULT,
+            template: ""
+        };
+        if (this.resolveScope(_scopeId) === SCOPE_DEFAULT) {
+            definition = this.config.get<PatternDefinition>("pattern")?.notes?.path;
+        } else {
+            definition = this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name === _scopeId).pop()?.patterns?.notes?.path;
+            scopedTemplate.scope = _scopeId!;
+        }
 
-                if (isNullOrUndefined(definition) || definition!.length === 0) {
-                    definition = DefaultPatternDefinition.notes.path;
-                }
-                scopedTemplate.template = definition!;
-                scopedTemplate.value = scopedTemplate.template;
+        if (isNullOrUndefined(definition) || definition!.length === 0) {
+            definition = DefaultPatternDefinition.notes.path;
+        }
+        scopedTemplate.template = definition!;
+        scopedTemplate.value = scopedTemplate.template;
 
-                scopedTemplate.value = this.replaceVariableValue("homeDir", os.homedir(), scopedTemplate.value);
-                scopedTemplate.value = this.replaceVariableValue("base", this.getBasePath(_scopeId), scopedTemplate.value);
-                scopedTemplate.value = this.replaceDateFormats(scopedTemplate.value, date);
+        scopedTemplate.value = J.Util.replaceVariableValue("homeDir", os.homedir(), scopedTemplate.value);
+        scopedTemplate.value = J.Util.replaceVariableValue("base", this.getBasePath(_scopeId), scopedTemplate.value);
+        scopedTemplate.value = J.Util.replaceDateFormats(scopedTemplate.value, date);
 
-                onSuccess(scopedTemplate);
-            } catch (error) {
-                onError(error);
-            }
-
-        });
+        return scopedTemplate; 
     }
 
     /**
@@ -243,38 +211,31 @@ export class Configuration {
      * 
      * @param _scopeId default or individual
      */
-    public getNotesFilePattern(date: Date, input: string, _scopeId?: string): Q.Promise<ScopedTemplate> {
-        return Q.Promise((onSuccess, onError) => {
-            try {
-                let definition: string | undefined;
-                let scopedTemplate: ScopedTemplate = {
-                    scope: SCOPE_DEFAULT,
-                    template: ""
-                };
-                if (this.resolveScope(_scopeId) === SCOPE_DEFAULT) {
-                    definition = this.config.get<PatternDefinition>("patterns")?.notes?.file;
-                } else {
-                    definition = this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name === _scopeId).pop()?.patterns?.notes?.file;
-                    scopedTemplate.scope = _scopeId!;
-                }
+    public async getNotesFilePattern(date: Date, input: string, _scopeId?: string): Promise<J.Model.ScopedTemplate> {
+        let definition: string | undefined;
+        let scopedTemplate: J.Model.ScopedTemplate = {
+            scope: SCOPE_DEFAULT,
+            template: ""
+        };
+        if (this.resolveScope(_scopeId) === SCOPE_DEFAULT) {
+            definition = this.config.get<PatternDefinition>("patterns")?.notes?.file;
+        } else {
+            definition = this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name === _scopeId).pop()?.patterns?.notes?.file;
+            scopedTemplate.scope = _scopeId!;
+        }
 
-                if (isNullOrUndefined(definition) || definition!.length === 0) {
-                    definition = DefaultPatternDefinition.notes.file;
-                }
-                scopedTemplate.template = definition!;
+        if (isNullOrUndefined(definition) || definition!.length === 0) {
+            definition = DefaultPatternDefinition.notes.file;
+        }
+        scopedTemplate.template = definition!;
 
-                scopedTemplate.value = this.replaceVariableValue("ext", this.getFileExtension(), scopedTemplate.template);
-                scopedTemplate.value = this.replaceVariableValue("input", input, scopedTemplate.value);
-                scopedTemplate.value = this.replaceDateFormats(scopedTemplate.value, date);
-
-                onSuccess(scopedTemplate);
-            } catch (error) {
-                onError(error);
-            }
-
-        });
+        scopedTemplate.value = J.Util.replaceVariableValue("ext", this.getFileExtension(), scopedTemplate.template);
+        scopedTemplate.value = J.Util.replaceVariableValue("input", input, scopedTemplate.value);
+        scopedTemplate.value = J.Util.replaceDateFormats(scopedTemplate.value, date);
+        return scopedTemplate; 
     }
 
+    
     /**
      * Configuration for the path, under which the  journal entry  file is stored
      * 
@@ -282,42 +243,35 @@ export class Configuration {
      * 
      * @param _scopeId default or individual
      */
-    public async getEntryPathPattern(date: Date, _scopeId?: string): Promise<ScopedTemplate> {
-        return Q.Promise((onSuccess, onError) => {
-            try {
-                let p = this.config.get<PatternDefinition>("patterns");
+    public async getEntryPathPattern(date: Date, _scopeId?: string): Promise<J.Model.ScopedTemplate> {
+        let p = this.config.get<PatternDefinition>("patterns");
 
-                let definition: string | undefined;
-                let scopedTemplate: ScopedTemplate = {
-                    scope: SCOPE_DEFAULT,
-                    template: ""
-                };
-                if (this.resolveScope(_scopeId) === SCOPE_DEFAULT) {
-                    definition = this.config.get<PatternDefinition>("patterns")?.entries?.path;
-                } else {
-                    definition = this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name === _scopeId).pop()?.patterns?.entries?.path;
-                    scopedTemplate.scope = _scopeId!;
-                }
+        let definition: string | undefined;
+        let scopedTemplate: J.Model.ScopedTemplate = {
+            scope: SCOPE_DEFAULT,
+            template: ""
+        };
+        if (this.resolveScope(_scopeId) === SCOPE_DEFAULT) {
+            definition = this.config.get<PatternDefinition>("patterns")?.entries?.path;
+        } else {
+            definition = this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name === _scopeId).pop()?.patterns?.entries?.path;
+            scopedTemplate.scope = _scopeId!;
+        }
 
-                if (isNullOrUndefined(definition) || definition!.length === 0) {
-                    definition = DefaultPatternDefinition.entries.path;
-                }
-                scopedTemplate.template = definition!;
+        if (isNullOrUndefined(definition) || definition!.length === 0) {
+            definition = DefaultPatternDefinition.entries.path;
+        }
+        scopedTemplate.template = definition!;
 
 
-                // resolve variables
-                scopedTemplate.value = this.replaceVariableValue("base", this.getBasePath(_scopeId), scopedTemplate.template);
-                scopedTemplate.value = this.replaceDateFormats(scopedTemplate.value, date);
+        // resolve variables
+        scopedTemplate.value = J.Util.replaceVariableValue("base", this.getBasePath(_scopeId), scopedTemplate.template);
+        scopedTemplate.value = J.Util.replaceDateFormats(scopedTemplate.value, date);
 
-                // clean path
-                scopedTemplate.value = Path.normalize(scopedTemplate.value);
+        // clean path
+        scopedTemplate.value = Path.normalize(scopedTemplate.value);
+        return scopedTemplate; 
 
-                onSuccess(scopedTemplate);
-            } catch (error) {
-                onError(error);
-            }
-
-        });
     }
     /**
    * Configuration for the filename, under which the journal entry file is stored
@@ -328,97 +282,37 @@ export class Configuration {
    * 
    * Update 05-2020: Really support scopes, directly access config to support live reloading
    */
-    public async getEntryFilePattern(date: Date, _scopeId?: string): Promise<ScopedTemplate> {
-        return Q.Promise((onSuccess, onError) => {
-            try {
-                var patternsa = this.config.get<PatternDefinition>("patterns");
-                var entries = this.config.get<PatternDefinition>("patterns")?.entries;
-                var file = this.config.get<PatternDefinition>("patterns")?.entries.file; 
+    public async getEntryFilePattern(date: Date, _scopeId?: string): Promise<J.Model.ScopedTemplate> {
+        var patternsa = this.config.get<PatternDefinition>("patterns");
+        var entries = this.config.get<PatternDefinition>("patterns")?.entries;
+        var file = this.config.get<PatternDefinition>("patterns")?.entries.file; 
 
-                let definition: string | undefined;
-                let scopedTemplate: ScopedTemplate = {
-                    scope: SCOPE_DEFAULT,
-                    template: ""
-                };
-                if (this.resolveScope(_scopeId) === SCOPE_DEFAULT) {
-                    definition = this.config.get<PatternDefinition>("patterns")?.entries?.file;
-                } else {
-                    definition = this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name === _scopeId).pop()?.patterns?.entries?.file;
-                    scopedTemplate.scope = _scopeId!;
-                }
+        let definition: string | undefined;
+        let scopedTemplate: J.Model.ScopedTemplate = {
+            scope: SCOPE_DEFAULT,
+            template: ""
+        };
+        if (this.resolveScope(_scopeId) === SCOPE_DEFAULT) {
+            definition = this.config.get<PatternDefinition>("patterns")?.entries?.file;
+        } else {
+            definition = this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name === _scopeId).pop()?.patterns?.entries?.file;
+            scopedTemplate.scope = _scopeId!;
+        }
 
-                if (isNullOrUndefined(definition) || definition!.length === 0) {
-                    definition = DefaultPatternDefinition.entries.file;
-                }
-                scopedTemplate.template = definition!;
+        if (isNullOrUndefined(definition) || definition!.length === 0) {
+            definition = DefaultPatternDefinition.entries.file;
+        }
+        scopedTemplate.template = definition!;
 
-                // resolve variables in template
+        // resolve variables in template
 
-                scopedTemplate.value = this.replaceVariableValue("ext", this.getFileExtension(_scopeId), scopedTemplate.template);
-                scopedTemplate.value = this.replaceDateFormats(scopedTemplate.value, date);
-
-                onSuccess(scopedTemplate);
-            } catch (error) {
-                onError(error);
-            }
-
-        });
+        scopedTemplate.value = J.Util.replaceVariableValue("ext", this.getFileExtension(_scopeId), scopedTemplate.template);
+        scopedTemplate.value = J.Util.replaceDateFormats(scopedTemplate.value, date);
+        return scopedTemplate; 
     }
 
 
 
-
-    /**
-     * Checks whether any embedded expressions with date formats are in the template, and replaces them in the value using the given date. 
-     * 
-     * @param st
-     * @param date 
-     */
-    // https://regex101.com/r/i5MUpx/1/
-    // private regExpDateFormats: RegExp = new RegExp(/\$\{(?:(year|month|day|localTime|localDate|weekday)|(d:\w+))\}/g);
-    // fix for #52
-    // private regExpDateFormats: RegExp = new RegExp(/\$\{(?:(year|month|day|localTime|localDate|weekday)|(d:\w+))\}/g);
-    private regExpDateFormats: RegExp = new RegExp(/\$\{(?:(year|month|day|localTime|localDate|weekday)|(d:[\s\S]+?))\}/g);
-
-    private replaceDateFormats(template: string, date: Date): string {
-        let matches: RegExpMatchArray = template.match(this.regExpDateFormats) || [];
-        // if (isNullOrUndefined(st.value)) { return st.template; }
-
-        // console.log(JSON.stringify(matches));
-
-        let mom: moment.Moment = moment(date);
-        moment.locale(this.getLocale());
-
-        matches.forEach(match => {
-            switch (match) {
-                case "${year}":
-                    template = template.replace(match, mom.format("YYYY")); break;
-                case "${month}":
-                    template = template.replace(match, mom.format("MM")); break;
-                case "${day}":
-                    template = template.replace(match, mom.format("DD")); break;
-                case "${localTime}":
-                    template = template.replace(match, mom.format("LT")); break;
-                case "${localDate}":
-                    template = template.replace(match, mom.format("LL")); break;
-                case "${weekday}":
-                    template = template.replace(match, mom.format("dddd")); break;
-                default:
-                    // check if custom format
-                    if (match.startsWith("${d:")) {
-
-                        let modifier = match.substring(match.indexOf("d:") + 2, match.length - 1); // includes } at the end
-                        // st.template = st.template.replace(match, mom.format(modifier));
-                        // fix for #51
-                        template = template.replace(match, mom.format(modifier));
-                        break;
-                    }
-                    break;
-            }
-        });
-
-        return template;
-    }
 
 
 
@@ -612,15 +506,15 @@ export class Configuration {
      * @returns {Q.Promise<FileTemplate>}
      * @memberof Configuration
      */
-    public async getEntryTemplate(date: Date, _scopeId?: string): Promise<HeaderTemplate> {
+    public async getEntryTemplate(date: Date, _scopeId?: string): Promise<J.Model.HeaderTemplate> {
         return this.getInlineTemplate("entry", "# ${localDate}\n\n", this.resolveScope(_scopeId))
-            .then((sp: ScopedTemplate) => {
+            .then((sp: J.Model.ScopedTemplate) => {
 
                 // backwards compatibility, replace {content} with ${input} as default
                 sp.template = sp.template.replace("{content}", "${localDate}");
 
-                sp.value = this.replaceDateFormats(sp.template, date);
-                sp.value = this.replaceVariableValue("base", this.getBasePath(_scopeId), sp.value);
+                sp.value = J.Util.replaceDateFormats(sp.template, date);
+                sp.value = J.Util.replaceVariableValue("base", this.getBasePath(_scopeId), sp.value);
 
                 return sp;
             });
@@ -635,13 +529,13 @@ export class Configuration {
        * @returns {Q.Promise<FileTemplate>} scoped file template for notes
        * @memberof Configuration 
        */
-    public async getNotesTemplate(_scopeId?: string): Promise<HeaderTemplate> {
+    public async getNotesTemplate(_scopeId?: string): Promise<J.Model.HeaderTemplate> {
         return this.getInlineTemplate("note", "# ${input}\n${tags}\n", this.resolveScope(_scopeId))
-            .then((result: ScopedTemplate) => {
+            .then((result: J.Model.ScopedTemplate) => {
                 // backwards compatibility, replace {content} with ${input} as default
                 result.template = result.template.replace("{content}", "${input}");
 
-                result.value = this.replaceDateFormats(result.template, new Date());
+                result.value = J.Util.replaceDateFormats(result.template, new Date());
 
                 return result;
             });
@@ -661,9 +555,9 @@ export class Configuration {
      * @returns {Q.Promise<FileTemplate>}
      * @memberof Configuration
      */
-    public async getFileLinkInlineTemplate(_scopeId?: string): Promise<InlineTemplate> {
+    public async getFileLinkInlineTemplate(_scopeId?: string): Promise<J.Model.InlineTemplate> {
         return this.getInlineTemplate("files", "- Link: [${title}](${link})", this.resolveScope(_scopeId))
-            .then((result: InlineTemplate) => {
+            .then((result: J.Model.InlineTemplate) => {
                 // backwards compatibility, replace {} with ${} (ts embedded expressions) as default
                 result.template = result.template.replace("{label}", "${title}");
 
@@ -684,17 +578,17 @@ export class Configuration {
     * Default value is: "- MEMO: {content}",
     *
     * @param {string} [_scopeId]
-    * @returns {Q.Promise<InlineTemplate>}
+    * @returns {Q.Promise<J.Model.InlineTemplate>}
     * @memberof Configuration
     */
-    public async getMemoInlineTemplate(_scopeId?: string): Promise<InlineTemplate> {
+    public async getMemoInlineTemplate(_scopeId?: string): Promise<J.Model.InlineTemplate> {
 
         return this.getInlineTemplate("memo", "- MEMO: ${input}", this.resolveScope(_scopeId))
-            .then((result: InlineTemplate) => {
+            .then((result: J.Model.InlineTemplate) => {
                 // backwards compatibility, replace {} with ${} (embedded expressions) as default
                 result.template = result.template.replace("{content}", "${input}");
 
-                result.value = this.replaceDateFormats(result.template, new Date());
+                result.value = J.Util.replaceDateFormats(result.template, new Date());
                 return result;
             });
     }
@@ -705,16 +599,16 @@ export class Configuration {
      * Default value is: "- [ ] {content}",
      *
      * @param {string} [_scopeId]
-     * @returns {Q.Promise<InlineTemplate>}
+     * @returns {Q.Promise<J.Model.InlineTemplate>}
      * @memberof Configuration
      */
-    public async getTaskInlineTemplate(_scopeId?: string): Promise<InlineTemplate> {
+    public async getTaskInlineTemplate(_scopeId?: string): Promise<J.Model.InlineTemplate> {
         return this.getInlineTemplate("task", "- [ ] ${input}", this.resolveScope(_scopeId))
-            .then((res: InlineTemplate) => {
+            .then((res: J.Model.InlineTemplate) => {
                 // backwards compatibility, replace {content} with ${input} as default
                 res.template = res.template.replace("{content}", "${input}");
 
-                res.value = this.replaceDateFormats(res.template, new Date());
+                res.value = J.Util.replaceDateFormats(res.template, new Date());
 
                 return res;
             });
@@ -741,13 +635,13 @@ export class Configuration {
      * Default value is: "LT" (Local Time),
      *
      * @param {string} [_scopeId]
-     * @returns {Q.Promise<InlineTemplate>}
+     * @returns {Q.Promise<J.Model.InlineTemplate>}
      * @memberof Configuration
      */
-    public async getTimeStringTemplate(_scopeId?: string): Promise<ScopedTemplate> {
+    public async getTimeStringTemplate(_scopeId?: string): Promise<J.Model.ScopedTemplate> {
         return this.getInlineTemplate("time", "LT", this.resolveScope(_scopeId))
             .then(tpl => {
-                tpl.value = this.replaceDateFormats(tpl.template, new Date());
+                tpl.value = J.Util.replaceDateFormats(tpl.template, new Date());
                 return tpl;
             });
     }
@@ -755,12 +649,12 @@ export class Configuration {
 
     public isDevelopmentModeEnabled(): boolean {
         let dev: boolean | undefined = this.config.get<boolean>('dev');
-        return (!isNullOrUndefined(dev)) ? dev! : false;
+        return (!J.Util.isNullOrUndefined(dev)) ? dev! : false;
     }
 
     public isOpenInNewEditorGroup(): boolean {
         let res: boolean | undefined = this.config.get<boolean>('openInNewEditorGroup');
-        return (!isNullOrUndefined(res)) ? res! : false;
+        return (!J.Util.isNullOrUndefined(res)) ? res! : false;
     }
 
 
@@ -772,55 +666,10 @@ export class Configuration {
      * @param _scopeId 
      */
     private resolveScope(_scopeId?: string): string {
-        return (isNullOrUndefined(_scopeId) || (_scopeId!.length === 0)) ? SCOPE_DEFAULT : _scopeId!;
-    }
-
-    /**
-     * Returns the pattern with the given id (loads them from vscode config if needed)
-     * 
-     * @param id 
-     * @deprecated
-     */
-    private getPatternX(id: string): Q.Promise<ScopedTemplate> {
-        return Q.Promise<ScopedTemplate>((resolve, reject) => {
-            try {
-                this.loadPatternsX()
-                    .then(b => {
-                        let tpl: ScopedTemplate = <ScopedTemplate>this.patterns.get(id);
-                        tpl.value = tpl.template;  // reset template
-                        resolve(tpl);
-                    });
-            } catch (error) {
-                reject(error);
-            }
-
-        });
-    }
-
-    private replaceVariableValue(key: string, value: string, template: string): string {
-        if (template.search("\\$\\{" + key + "\\}") >= 0) {
-            return template.replace("${" + key + "}", value);
-        } else {
-            return template;
-        }
-    }
-
-    private replaceVariableInTemplate(key: string, value: string, st: ScopedTemplate): void {
-        if (Util.stringIsNotEmpty(st.template)) {
-            if (st.template!.search("\\$\\{" + key + "\\}") >= 0) {
-                st.template = st.template!.replace("${" + key + "}", value);
-            }
-        } else {
-            console.error("Tried to replace variable in empty string.");
-        }
-
-
+        return (J.Util.isNullOrUndefined(_scopeId) || (_scopeId!.length === 0)) ? SCOPE_DEFAULT : _scopeId!;
     }
 
 
-    private async getInlineTemplateA(_id: string, _defaultValue: string, _scopeId: string): Promise<InlineTemplate> {
-        return this.getInlineTemplate(_id, _defaultValue, _scopeId); 
-    }
 
     /**
      * Returns the inline template from user or workspace settings 
@@ -828,159 +677,43 @@ export class Configuration {
      * @param _defaultValue  
      * @param _scopeId 
      */
-    private async getInlineTemplate(_id: string, _defaultValue: string, _scopeId: string): Promise<InlineTemplate> {
-        return Q.Promise<InlineTemplate>((resolve, reject) => {
-            try {
-                let scope = this.resolveScope(_scopeId);
-                let defaultScpe = SCOPE_DEFAULT; 
+    private async getInlineTemplate(_id: string, _defaultValue: string, _scopeId: string): Promise<J.Model.InlineTemplate> {
+        let scope = this.resolveScope(_scopeId);
+        let defaultScpe = SCOPE_DEFAULT; 
 
-                let pattern: InlineTemplate | undefined;
-                if (scope === defaultScpe) {
-                    pattern = this.config.get<InlineTemplate[]>("templates")?.filter(tpl => tpl.name === _id).pop();
-                } else {
-                    // a scope was requested
-                    this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name = scope).pop()?.templates?.filter(tpl => tpl.name === _id)?.pop();
-                }
+        let pattern: J.Model.InlineTemplate | undefined;
+        if (scope === defaultScpe) {
+            pattern = this.config.get<J.Model.InlineTemplate[]>("templates")?.filter(tpl => tpl.name === _id).pop();
+        } else {
+            // a scope was requested
+            this.config.get<ScopeDefinition[]>("scopes")?.filter(sd => sd.name = scope).pop()?.templates?.filter(tpl => tpl.name === _id)?.pop();
+        }
 
-                if (Util.isNullOrUndefined(pattern)) {
-
-                    // legacy mode, support old config values
-                    // #72: moved here, otherwise legacy always wins when both are set
-                    if (Util.stringIsNotEmpty(this.config.get<string>("tpl-" + _id))) {
-                        resolve({
-                            name: _id,
-                            scope: SCOPE_DEFAULT,
-                            template: this.config.get<string>("tpl-" + _id)!,
-                            after: Util.stringIsNotEmpty(this.config.get<string>(_id + '-after')) ? this.config.get<string>(_id + '-after')! : ''
-                        });
-
-                        return;
-                    };
+        if (J.Util.isNullOrUndefined(pattern)) {
+            // legacy mode, support old config values
+            // #72: moved here, otherwise legacy always wins when both are set
+            if (J.Util.stringIsNotEmpty(this.config.get<string>("tpl-" + _id))) {
+                return {
+                    name: _id,
+                    scope: SCOPE_DEFAULT,
+                    template: this.config.get<string>("tpl-" + _id)!,
+                    after: J.Util.stringIsNotEmpty(this.config.get<string>(_id + '-after')) ? this.config.get<string>(_id + '-after')! : ''
+                };
+            };
 
 
-                    resolve({
-                        name: _id,
-                        scope: SCOPE_DEFAULT,
-                        template: _defaultValue,
-                        after: ''
-                    });
-                } else {
-                    // safeguards which should never trigger
-                    if (Util.isNullOrUndefined(pattern?.after)) {pattern!.after = '';}
-                    if (Util.isNullOrUndefined(pattern?.template)) {pattern!.after = _defaultValue;}
-                    resolve(pattern!);
-                }
-            } catch (error) {
-                reject(error);
-            }
-
-        });
+            return {
+                name: _id,
+                scope: SCOPE_DEFAULT,
+                template: _defaultValue,
+                after: ''
+            };
+        } else {
+            // safeguards which should never trigger
+            if (J.Util.isNullOrUndefined(pattern?.after)) {pattern!.after = '';}
+            if (J.Util.isNullOrUndefined(pattern?.template)) {pattern!.after = _defaultValue;}
+            return pattern!;
+        }
     }
-
-
-    /**
-     * Cached variant
-     * @param _id
-     * @param _defaultValue 
-     * @param _scopeId 
-     * @deprecated Replaced to support live reloading
-     */
-    private getInlineTemplateCached(_id: string, _defaultValue: string, _scopeId: string): Q.Promise<InlineTemplate> {
-        return Q.Promise<InlineTemplate>((resolve, reject) => {
-
-            try {
-                let key: string = _scopeId + "." + _id;
-                let pattern: InlineTemplate = <InlineTemplate>this.patterns.get(key);
-                if (isNullOrUndefined(pattern)) {
-
-                    let tpl = this.config.get<string>(_id);
-                    let after = this.config.get<string>(_id + '-after');
-
-                    pattern = {
-                        scope: this.resolveScope(_scopeId),
-                        template: isNullOrUndefined(tpl) ? _defaultValue : tpl!,
-                        after: isNullOrUndefined(after) ? '' : after!
-                    };
-                    this.patterns.set(key, pattern);
-
-
-                }
-
-                pattern.value = pattern.template;
-                resolve(pattern);
-            } catch (error) {
-                reject(error);
-            }
-
-        });
-    }
-
-
-    /** 
-     * Loads the patterns if needed from the vscode configuration. 
-     */
-    private loadPatternsX(): Q.Promise<boolean> {
-        return Q.Promise<boolean>((resolve, reject) => {
-            if (this.patterns.size > 0) {
-                resolve(true);
-                return;
-            }
-
-            let config: PatternDefinition | undefined = this.config.get<PatternDefinition>('patterns');
-
-            //FIXME: support scopes
-            try {
-                if (isNullOrUndefined(config)) {
-                    config = {
-                        notes: {
-                            path: "${base}/${year}/${month}/${day}",
-                            file: "${input}.${ext}"
-                        },
-                        entries: {
-                            path: "${base}/${year}/${month}",
-                            file: "${day}.${ext}"
-                        }
-                    };
-                }
-
-                // setting the default patterns
-                this.patterns.set("default.pattern.notes.path",
-                    {
-                        name: "default.pattern.notes.path",
-                        scope: "default",
-                        template: config!.notes.path
-                    });
-                this.patterns.set("default.pattern.notes.file",
-                    {
-                        name: "default.pattern.notes.file",
-                        scope: "default",
-                        template: config!.notes.file
-                    });
-                this.patterns.set("default.pattern.entries.path",
-                    {
-                        name: "default.pattern.entries.path",
-                        scope: "default",
-                        template: config!.entries.path
-                    });
-                this.patterns.set("default.pattern.entries.file",
-                    {
-                        name: "default.pattern.entries.file",
-                        scope: "default",
-                        template: config!.entries.file
-                    });
-
-
-                // TODO: setting the scoped patterns
-
-
-
-                resolve(true);
-            } catch (error) {
-                reject(error);
-            }
-        });
-    }
-
-
 
 }

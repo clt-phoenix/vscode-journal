@@ -19,7 +19,6 @@
 
 import * as vscode from 'vscode';
 import * as J from '../..';
-import { ScopedTemplate } from '../../../out/src/provider';
 
 
 export class PrintTimeCommand implements vscode.Command, vscode.Disposable {
@@ -48,7 +47,7 @@ export class PrintTimeCommand implements vscode.Command, vscode.Disposable {
             let editor: vscode.TextEditor = <vscode.TextEditor>vscode.window.activeTextEditor;
 
             // Todo: identify scope of the active editot
-            let template: ScopedTemplate = await this.ctrl.config.getTimeStringTemplate();
+            let template: J.Model.ScopedTemplate = await this.ctrl.config.getTimeStringTemplate();
 
             let currentPosition: vscode.Position = editor.selection.active;
 

@@ -42,8 +42,5 @@ export { InsertMemoCommand } from './commands/insert-memo'
 */
 export {
     Configuration, 
-    InlineTemplate, 
-    ScopedTemplate, 
-    HeaderTemplate, 
     SCOPE_DEFAULT
 } from './conf';

@@ -67,3 +67,13 @@ export function stringIsNotEmpty(value: string | undefined | null) : boolean {
 export function isString(object: any | string | undefined ): boolean {
     return isNotNullOrUndefined(object) && typeof object === 'string';
 }
+
+
+
+export function  replaceVariableValue(key: string, value: string, template: string): string {
+    if (template.search("\\$\\{" + key + "\\}") >= 0) {
+        return template.replace("${" + key + "}", value);
+    } else {
+        return template;
+    }
+}

@@ -16,15 +16,44 @@
 // along with vscode-journal.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
+import { JournalPageType } from ".";
+
 
 export interface TemplateInfo {
     template: string; 
     after: string; 
 }
 
-export interface InlineTemplate {
+
+/*export interface InlineTemplate {
     scope: string; 
     id: string;
     template: string;
     after: string;
+}*/
+
+
+export interface ScopedTemplate {
+    name?: string;
+    scope?: string;
+    template: string;
+    value?: string;
 }
+
+
+
+export interface FilePattern extends ScopedTemplate {
+    type: JournalPageType;
+}
+
+export interface PathTemplate extends ScopedTemplate {
+    type: JournalPageType;
+}
+
+export interface HeaderTemplate extends ScopedTemplate {
+}
+
+export interface InlineTemplate extends ScopedTemplate {
+    after: string;
+}
+

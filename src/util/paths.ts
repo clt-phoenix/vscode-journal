@@ -58,49 +58,49 @@ export function getPathAsString(path: Path.ParsedPath): string {
  * 
  * @param entryPath 
  */
- export async function getDateFromURI(uri: string, pathTemplate: string, fileTemplate: string, basePath: string): Promise<Date> {
-    if(fileTemplate.indexOf(".") > 0) fileTemplate = fileTemplate.substr(0, fileTemplate.lastIndexOf(".")); 
-    if(pathTemplate.startsWith("${base}/")) pathTemplate = pathTemplate.substring("${base}/".length); 
+export async function getDateFromURI(uri: string, pathTemplate: string, fileTemplate: string, basePath: string): Promise<Date> {
+    if (fileTemplate.indexOf(".") > 0) fileTemplate = fileTemplate.substr(0, fileTemplate.lastIndexOf("."));
+    if (pathTemplate.startsWith("${base}/")) pathTemplate = pathTemplate.substring("${base}/".length);
 
     // go through each element in path and assign it to a date part or skip it
     let pathParts = uri.split("/");
 
     // check if part is in base path (if yes, we ignore)
     // for the rest: last part is file, everything else path pattern
-    let pathElements: string[] = []
-    let trimmedPathString: string = ""; 
-    let trimmedFileString = ""; 
+    let pathElements: string[] = [];
+    let trimmedPathString: string = "";
+    let trimmedFileString = "";
 
     pathParts.forEach((element, index) => {
-        if(element.trim().length === 0) return; 
-        else if(element.startsWith("file:")) return; 
-        else if(basePath.search(element) >= 0) return; 
-        else if(index+1 == pathParts.length) trimmedFileString = element.substr(0, element.lastIndexOf("."))
+        if (element.trim().length === 0) return;
+        else if (element.startsWith("file:")) return;
+        else if (basePath.search(element) >= 0) return;
+        else if (index + 1 == pathParts.length) trimmedFileString = element.substr(0, element.lastIndexOf("."));
         else {
-            pathElements.concat(element)
-            if(trimmedPathString.length > 1) trimmedPathString += "/"
-            trimmedPathString += element; 
+            pathElements.concat(element);
+            if (trimmedPathString.length > 1) trimmedPathString += "/";
+            trimmedPathString += element;
         }
     });
 
 
-    const entryDateFormat = replaceDateTemplatesWithMomentsFormats(fileTemplate); 
-    const pathDateFormat = replaceDateTemplatesWithMomentsFormats(pathTemplate); 
+    const entryDateFormat = replaceDateTemplatesWithMomentsFormats(fileTemplate);
+    const pathDateFormat = replaceDateTemplatesWithMomentsFormats(pathTemplate);
 
-    let parsedDateFromFile = moment(trimmedFileString, entryDateFormat); 
-    let parsedDateFromPath = moment(trimmedPathString, pathDateFormat); 
-    
-    let result = moment(); 
+    let parsedDateFromFile = moment(trimmedFileString, entryDateFormat);
+    let parsedDateFromPath = moment(trimmedPathString, pathDateFormat);
+
+    let result = moment();
 
     // consolidate the two
-    if(fileTemplate.indexOf("${year}")>=0) result = result.year(parsedDateFromFile.year())
-    else result = result.year(parsedDateFromPath.year())
-    if(fileTemplate.indexOf("${month}")>=0) result = result.month(parsedDateFromFile.month())
-    else result = result.month(parsedDateFromPath.month())
-    if(fileTemplate.indexOf("${day}")>=0) result = result.date(parsedDateFromFile.date())
-    else result = result.date(parsedDateFromPath.date())
+    if (fileTemplate.indexOf("${year}") >= 0) result = result.year(parsedDateFromFile.year());
+    else result = result.year(parsedDateFromPath.year());
+    if (fileTemplate.indexOf("${month}") >= 0) result = result.month(parsedDateFromFile.month());
+    else result = result.month(parsedDateFromPath.month());
+    if (fileTemplate.indexOf("${day}") >= 0) result = result.date(parsedDateFromFile.date());
+    else result = result.date(parsedDateFromPath.date());
 
-    return result.toDate(); 
+    return result.toDate();
 
 }
 
@@ -111,12 +111,12 @@ export function getPathAsString(path: Path.ParsedPath): string {
  * 
  * @param entryPath 
  */
-export async function getDateFromURIAndConfig(entryPath: string,  configCtrl: J.Provider.Configuration): Promise<Date> {
-    const pathTpl = (await configCtrl.getEntryPathPattern(new Date())).template; 
-    const entryTpl = (await configCtrl.getEntryFilePattern(new Date())).template; 
-    const base = (await configCtrl.getBasePath()); 
+export async function getDateFromURIAndConfig(entryPath: string, configCtrl: J.Provider.Configuration): Promise<Date> {
+    const pathTpl = (await configCtrl.getEntryPathPattern(new Date())).template;
+    const entryTpl = (await configCtrl.getEntryFilePattern(new Date())).template;
+    const base = (await configCtrl.getBasePath());
 
-    return getDateFromURI(entryPath, pathTpl, entryTpl, base); 
+    return getDateFromURI(entryPath, pathTpl, entryTpl, base);
 
 }
 
@@ -129,7 +129,7 @@ export async function getDateFromURIAndConfig(entryPath: string,  configCtrl: J.
  * @param withExtension 
  * @returns 
  */
- export function getFileInURI(uri: string, withExtension?: boolean): string {
+export function getFileInURI(uri: string, withExtension?: boolean): string {
     let p: string = uri.substr(uri.lastIndexOf("/") + 1, uri.length);
     if (withExtension === null || !withExtension) {
         return p.split(".")[0];
@@ -141,7 +141,7 @@ export async function getDateFromURIAndConfig(entryPath: string,  configCtrl: J.
 /**
  * Returns path to month folder. 
  */
- export function getPathOfMonth(date: Date, base: string): string {
+export function getPathOfMonth(date: Date, base: string): string {
     let year = date.getFullYear().toString();
     let month = prefixZero(date.getMonth() + 1);
     return Path.resolve(base, year, month);
@@ -173,6 +173,30 @@ export async function checkIfFileIsAccessible(path: string): Promise<void> {
         fs.access(path, err => {
             if (isNullOrUndefined(err)) { resolve(); }
             else { reject((<NodeJS.ErrnoException>err).message); }
-        })
-    }); 
+        });
+    });
+}
+
+
+/**
+ * Tries to infer the file type from the path by matching against the configured patterns
+ * @param entry - path to entry
+ * @param ext - configured standard extension 
+ */
+export async function inferType(entry: Path.ParsedPath, extension: string): Promise<J.Model.JournalPageType> {
+
+    if (!entry.ext.endsWith(extension)) {
+        return J.Model.JournalPageType.ATTACHEMENT; // any attachement
+    } else
+
+        // this is getting out of hand if we need to infer it by scanning the patterns from the settings.
+        // We keep it simple: if the filename contains only digits and special chars, we assume it 
+        // is a journal entry. Everything else is a journal note. 
+        if (entry.name.match(/^[\d|\-|_]+$/gm)) {
+            return J.Model.JournalPageType.ENTRY; // any entry
+        } else {
+            return J.Model.JournalPageType.NOTE; // anything else is a note
+        }
+
+
 }

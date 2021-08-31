@@ -21,7 +21,6 @@
 import * as Path from 'path';
 import * as vscode from 'vscode';
 import * as J from '../.';
-import { HeaderTemplate, InlineTemplate } from '../provider';
 
 
 interface InlineString {
@@ -51,7 +50,7 @@ export class Inject {
         this.ctrl.logger.trace("Entering injectInput() in inject.ts with Input:", JSON.stringify(input));
 
         try {
-            let tplInfo: InlineTemplate;
+            let tplInfo: J.Model.InlineTemplate;
 
             if(input.isMemo()) {
                 tplInfo = await this.ctrl.config.getMemoInlineTemplate();
@@ -84,7 +83,7 @@ export class Inject {
      * 
      * Updates: Fix for  #55, always make sure there is a linebreak between the header and the injected text to stay markdown compliant
      */
-    private async buildInlineString(doc: vscode.TextDocument, tpl: J.Provider.InlineTemplate, ...values: string[][]): Promise<InlineString> {
+    private async buildInlineString(doc: vscode.TextDocument, tpl: J.Model.InlineTemplate, ...values: string[][]): Promise<InlineString> {
         this.ctrl.logger.trace("Entering buildInlineString() in inject.ts with InlineTemplate: ", JSON.stringify(tpl), " and values ", JSON.stringify(values));
         try {
             // construct content to insert
@@ -238,7 +237,7 @@ export class Inject {
         try {
             this.ctrl.logger.trace("Entering formatNote() in inject.ts with input: ", JSON.stringify(input));
 
-            let headerTemplate: J.Provider.HeaderTemplate  = await this.ctrl.config.getNotesTemplate(input.scope);
+            let headerTemplate: J.Model.HeaderTemplate  = await this.ctrl.config.getNotesTemplate(input.scope);
             headerTemplate.value = headerTemplate.value!.replace('${input}', input.text);
             headerTemplate.value = headerTemplate.value!.replace('${tags}', input.tags.join(" ") + '\n');
             return headerTemplate.value; 
@@ -260,7 +259,7 @@ export class Inject {
         this.ctrl.logger.trace("Entering injectReference() in ext/inject.ts for document: ", doc.fileName, " and file ", file);
 
         try {
-            let tpl: InlineTemplate = await this.ctrl.config.getFileLinkInlineTemplate(); 
+            let tpl: J.Model.InlineTemplate = await this.ctrl.config.getFileLinkInlineTemplate(); 
 
             // fix for #70 
             const pathToLinkedFile: Path.ParsedPath = Path.parse(file.fsPath);

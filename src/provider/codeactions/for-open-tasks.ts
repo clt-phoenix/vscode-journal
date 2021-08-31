@@ -17,7 +17,6 @@
 // 
 'use strict';
 
-import moment from 'moment';
 import * as vscode from 'vscode';
 import * as J from '../..';
 import { ShiftTarget } from '../commands/shift-task';

@@ -21,38 +21,7 @@ export { Ctrl }  from './controller';
 export { Startup } from '../provider/startup';
 export { Logger }  from './logger';
 
-export {
-     isNotNullOrUndefined, 
-     isNullOrUndefined, 
-     isError
-} from './util';
-
-export {
-    formatDate, 
-    getDayOfWeekForString, 
-    replaceDateFormats,
-    normalizeDayAsString,
-    replaceDateTemplatesWithMomentsFormats
-
-} from './dates';
-
-export {
-    denormalizeFilename, 
-    getDayAsString, 
-    isString, 
-    normalizeFilename, 
-    prefixZero, 
-    stringIsNotEmpty
-} from './strings';
-
-export {
-    checkIfFileIsAccessible, 
-    getEntryPathForDate, 
-    getFileInURI, 
-    getFilePathInDateFolder, 
-    getPathAsString, 
-    getPathOfMonth, 
-    getDateFromURI, 
-    getDateFromURIAndConfig
-}
-from './paths'
+export * from './util';
+export * from './dates';
+export * from './strings';
+export * from './paths'
